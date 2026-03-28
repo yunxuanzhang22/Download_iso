@@ -384,7 +384,7 @@ while true; do
 done
 
 if [[ "$CONFIRM_CRON" == "y" ]]; then
-    CRON_CMD="${SELF_PATH} --run --source ${SOURCE_MODE} --dir \"${DOWNLOAD_DIR}\" --delete-after ${DELETE_AFTER} >> ${LOG_DIR}/download.log 2>&1"
+    CRON_CMD="${SELF_PATH} --run --source ${SOURCE_MODE} --dir \"${DOWNLOAD_DIR}\" --delete-after ${DELETE_AFTER} > ${LOG_DIR}/download.log 2>&1"
     install_cron_job "$CRON_EXPR" "$CRON_CMD"
     info "定时任务已安装成功"
     info "当前定时规则：$CRON_EXPR"
