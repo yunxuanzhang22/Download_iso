@@ -27,25 +27,29 @@
 
 ## 使用说明
 
-### Ubuntu / Debian 交互运行
+### Ubuntu / Debian
+
+#### 交互运行
 
 ```bash
 wget https://raw.githubusercontent.com/yunxuanzhang22/Download_iso/main/ubuntu_debian_iso_downloader.sh && chmod +x ubuntu_debian_iso_downloader.sh && ./ubuntu_debian_iso_downloader.sh
 ```
 
-### RedHat / CentOS 交互运行
-
-```bash
-wget https://raw.githubusercontent.com/yunxuanzhang22/Download_iso/main/redhat_centos_iso_downloader.sh && chmod +x redhat_centos_iso_downloader.sh && ./redhat_centos_iso_downloader.sh
-```
-
-### Ubuntu / Debian 只执行一次下载
+#### 只执行一次下载
 
 ```bash
 wget https://raw.githubusercontent.com/yunxuanzhang22/Download_iso/main/ubuntu_debian_iso_downloader.sh && chmod +x ubuntu_debian_iso_downloader.sh && ./ubuntu_debian_iso_downloader.sh --run --source global --dir /data/iso --delete-after y
 ```
 
-### RedHat / CentOS 只执行一次下载
+### RedHat / CentOS
+
+#### 交互运行
+
+```bash
+wget https://raw.githubusercontent.com/yunxuanzhang22/Download_iso/main/redhat_centos_iso_downloader.sh && chmod +x redhat_centos_iso_downloader.sh && ./redhat_centos_iso_downloader.sh
+```
+
+#### 只执行一次下载
 
 ```bash
 wget https://raw.githubusercontent.com/yunxuanzhang22/Download_iso/main/redhat_centos_iso_downloader.sh && chmod +x redhat_centos_iso_downloader.sh && ./redhat_centos_iso_downloader.sh --run --source global --dir /data/iso --delete-after y
