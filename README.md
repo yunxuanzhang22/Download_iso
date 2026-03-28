@@ -24,8 +24,16 @@
 
 ## 使用说明
 
+### 交互运行
+
 ```bash
 wget https://raw.githubusercontent.com/yunxuanzhang22/Download_iso/main/ubuntu_iso_downloader.sh && chmod +x ubuntu_iso_downloader.sh && ./ubuntu_iso_downloader.sh
+```
+
+### 只执行一次下载
+
+```bash
+wget https://raw.githubusercontent.com/yunxuanzhang22/Download_iso/main/ubuntu_iso_downloader.sh && chmod +x ubuntu_iso_downloader.sh && ./ubuntu_iso_downloader.sh --run --source global --dir /data/iso --delete-after y
 ```
 
 ## 日志目录
