@@ -41,9 +41,29 @@ normalize_yes_no() {
     esac
 }
 
+normalize_time() {
+    local t="$1"
+    local h m s
+    if [[ "$t" =~ ^([0-9]{1,2}):([0-9]{2}):([0-9]{2})$ ]]; then
+        h="${BASH_REMATCH[1]}"
+        m="${BASH_REMATCH[2]}"
+        s="${BASH_REMATCH[3]}"
+        if ((10#$h >= 0 && 10#$h <= 23)); then
+            printf "%02d:%02d:%02d\n" "$((10#$h))" "$((10#$m))" "$((10#$s))"
+            return 0
+        fi
+    fi
+    return 1
+}
+
 validate_time() {
     local t="$1"
     [[ "$t" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ ]]
+}
+
+validate_week_days() {
+    local input="$1"
+    [[ "$input" =~ ^([0-6])(,([0-6]))*$ ]]
 }
 
 ensure_dir() {
@@ -212,7 +232,6 @@ show_summary() {
     echo
 }
 
-# 供 cron 调用
 if [[ "${1:-}" == "--run" ]]; then
     shift
 
@@ -249,110 +268,120 @@ if [[ "${1:-}" == "--run" ]]; then
     exit 0
 fi
 
-# 主菜单
 echo "=============================================="
 echo " Ubuntu 镜像定时下载脚本"
 echo "=============================================="
-echo "1. 安装定时任务"
-echo "2. 卸载定时任务"
-echo "0. 退出"
-read -r -p "请输入选项: " MENU_CHOICE
-MENU_CHOICE="$(trim "${MENU_CHOICE:-}")"
 
-case "$MENU_CHOICE" in
-    1)
-        ;;
-    2)
-        uninstall_cron_job
-        exit 0
-        ;;
-    0)
-        exit 0
-        ;;
-    *)
-        warn "无效选项，程序退出"
-        exit 1
-        ;;
-esac
+action=""
+while true; do
+    echo "1. 安装定时任务"
+    echo "2. 卸载定时任务"
+    echo "0. 退出"
+    read -r -p "请输入选项: " MENU_CHOICE
+    MENU_CHOICE="$(trim "${MENU_CHOICE:-}")"
+    case "$MENU_CHOICE" in
+        1) action="install"; break ;;
+        2) uninstall_cron_job; exit 0 ;;
+        0) exit 0 ;;
+        *) warn "无效选项，请重新输入" ;;
+    esac
+done
 
 DEFAULT_SOURCE_MODE="$(detect_default_source)"
 DEFAULT_SOURCE_TEXT="$([[ "$DEFAULT_SOURCE_MODE" == "cn" ]] && echo "国内源" || echo "国外源")"
 
-read -r -p "请选择下载源 [cn=国内源 / global=国外源]（默认：自动判断为 ${DEFAULT_SOURCE_TEXT}）: " SOURCE_MODE_INPUT
-SOURCE_MODE_INPUT="$(trim "$SOURCE_MODE_INPUT")"
-
-case "$SOURCE_MODE_INPUT" in
-    "" ) SOURCE_MODE="$DEFAULT_SOURCE_MODE" ;;
-    cn|CN ) SOURCE_MODE="cn" ;;
-    global|GLOBAL|oversea|foreign ) SOURCE_MODE="global" ;;
-    * )
-        warn "输入无效，已自动使用默认判断结果：${DEFAULT_SOURCE_TEXT}"
-        SOURCE_MODE="$DEFAULT_SOURCE_MODE"
-        ;;
-esac
+while true; do
+    read -r -p "请选择下载源 [cn=国内源 / global=国外源]（默认：自动判断为 ${DEFAULT_SOURCE_TEXT}）: " SOURCE_MODE_INPUT
+    SOURCE_MODE_INPUT="$(trim "$SOURCE_MODE_INPUT")"
+    case "$SOURCE_MODE_INPUT" in
+        "" ) SOURCE_MODE="$DEFAULT_SOURCE_MODE"; break ;;
+        cn|CN ) SOURCE_MODE="cn"; break ;;
+        global|GLOBAL|oversea|foreign ) SOURCE_MODE="global"; break ;;
+        * ) warn "输入无效，请输入 cn / global，或直接回车使用默认值" ;;
+    esac
+done
 
 read -r -p "请输入下载目录（默认：${DEFAULT_DOWNLOAD_DIR}）: " DOWNLOAD_DIR
 DOWNLOAD_DIR="$(trim "${DOWNLOAD_DIR:-}")"
 [[ -z "$DOWNLOAD_DIR" ]] && DOWNLOAD_DIR="$DEFAULT_DOWNLOAD_DIR"
 ensure_dir "$DOWNLOAD_DIR"
 
-read -r -p "下载完成后是否自动删除文件？[Y/n]（默认：是）: " DELETE_AFTER
-DELETE_AFTER="$(normalize_yes_no "$DELETE_AFTER")"
-[[ -z "$DELETE_AFTER" ]] && DELETE_AFTER="$DEFAULT_DELETE_AFTER_DOWNLOAD"
+while true; do
+    read -r -p "下载完成后是否自动删除文件？[Y/n]（默认：是）: " DELETE_AFTER_INPUT
+    DELETE_AFTER_INPUT="$(normalize_yes_no "$DELETE_AFTER_INPUT")"
+    if [[ -z "$DELETE_AFTER_INPUT" ]]; then
+        DELETE_AFTER="$DEFAULT_DELETE_AFTER_DOWNLOAD"
+        break
+    fi
+    case "$DELETE_AFTER_INPUT" in
+        y|n) DELETE_AFTER="$DELETE_AFTER_INPUT"; break ;;
+        *) warn "输入无效，请输入 Y / n" ;;
+    esac
+done
 
 echo
 echo "请选择执行周期："
-echo "1. 每天执行"
-echo "2. 每周执行"
-echo "3. 每月执行"
-read -r -p "请输入选项（默认：2）: " CYCLE_CHOICE
-CYCLE_CHOICE="$(trim "${CYCLE_CHOICE:-}")"
-[[ -z "$CYCLE_CHOICE" ]] && CYCLE_CHOICE="2"
+MODE=""
+while true; do
+    echo "1. 每天执行"
+    echo "2. 每周执行"
+    echo "3. 每月执行"
+    read -r -p "请输入选项（默认：2）: " CYCLE_CHOICE
+    CYCLE_CHOICE="$(trim "${CYCLE_CHOICE:-}")"
+    [[ -z "$CYCLE_CHOICE" ]] && CYCLE_CHOICE="2"
+    case "$CYCLE_CHOICE" in
+        1) MODE="daily"; break ;;
+        2) MODE="weekly"; break ;;
+        3) MODE="monthly"; break ;;
+        *) warn "输入无效，请重新输入 1 / 2 / 3" ;;
+    esac
+done
 
-read -r -p "几点下载（默认：${DEFAULT_TIME}）: " EXEC_TIME
-EXEC_TIME="$(trim "${EXEC_TIME:-}")"
-[[ -z "$EXEC_TIME" ]] && EXEC_TIME="$DEFAULT_TIME"
-
-if ! validate_time "$EXEC_TIME"; then
-    warn "时间格式无效，已使用默认时间：${DEFAULT_TIME}"
-    EXEC_TIME="$DEFAULT_TIME"
-fi
+while true; do
+    read -r -p "几点下载（默认：${DEFAULT_TIME}）: " EXEC_TIME_INPUT
+    EXEC_TIME_INPUT="$(trim "${EXEC_TIME_INPUT:-}")"
+    [[ -z "$EXEC_TIME_INPUT" ]] && EXEC_TIME_INPUT="$DEFAULT_TIME"
+    if EXEC_TIME="$(normalize_time "$EXEC_TIME_INPUT" 2>/dev/null)"; then
+        break
+    else
+        warn "时间格式无效，请输入 HH:MM:SS，例如 01:05:00 或 1:05:00"
+    fi
+done
 
 WEEK_DAYS="$DEFAULT_WEEK_DAYS"
-
-case "$CYCLE_CHOICE" in
-    1)
-        MODE="daily"
-        ;;
-    2)
-        MODE="weekly"
+if [[ "$MODE" == "weekly" ]]; then
+    while true; do
         read -r -p "每周几执行（例如：1,3；默认：${DEFAULT_WEEK_DAYS}）: " WEEK_DAYS_INPUT
         WEEK_DAYS_INPUT="$(trim "${WEEK_DAYS_INPUT:-}")"
-        [[ -n "$WEEK_DAYS_INPUT" ]] && WEEK_DAYS="$WEEK_DAYS_INPUT"
-        ;;
-    3)
-        MODE="monthly"
-        ;;
-    *)
-        warn "输入无效，已默认按每周执行"
-        MODE="weekly"
-        read -r -p "每周几执行（例如：1,3；默认：${DEFAULT_WEEK_DAYS}）: " WEEK_DAYS_INPUT
-        WEEK_DAYS_INPUT="$(trim "${WEEK_DAYS_INPUT:-}")"
-        [[ -n "$WEEK_DAYS_INPUT" ]] && WEEK_DAYS="$WEEK_DAYS_INPUT"
-        ;;
-esac
+        [[ -z "$WEEK_DAYS_INPUT" ]] && WEEK_DAYS_INPUT="$DEFAULT_WEEK_DAYS"
+        if validate_week_days "$WEEK_DAYS_INPUT"; then
+            WEEK_DAYS="$WEEK_DAYS_INPUT"
+            break
+        else
+            warn "输入无效，请输入 0-6 之间的数字，可用逗号分隔，例如 1,3"
+        fi
+    done
+fi
 
 HH="${EXEC_TIME%%:*}"
 REST="${EXEC_TIME#*:}"
 MM="${REST%%:*}"
-
 CRON_EXPR="$(build_cron_expr "$MODE" "$HH" "$MM" "$WEEK_DAYS")"
 
 show_summary "$SOURCE_MODE" "$DOWNLOAD_DIR" "$DELETE_AFTER" "$EXEC_TIME" "$MODE" "$WEEK_DAYS"
 
-read -r -p "是否写入当前用户 crontab？[Y/n]（默认：是）: " CONFIRM_CRON
-CONFIRM_CRON="$(normalize_yes_no "$CONFIRM_CRON")"
-[[ -z "$CONFIRM_CRON" ]] && CONFIRM_CRON="y"
+while true; do
+    read -r -p "是否写入当前用户 crontab？[Y/n]（默认：是）: " CONFIRM_CRON_INPUT
+    CONFIRM_CRON_INPUT="$(normalize_yes_no "$CONFIRM_CRON_INPUT")"
+    if [[ -z "$CONFIRM_CRON_INPUT" ]]; then
+        CONFIRM_CRON="y"
+        break
+    fi
+    case "$CONFIRM_CRON_INPUT" in
+        y|n) CONFIRM_CRON="$CONFIRM_CRON_INPUT"; break ;;
+        *) warn "输入无效，请输入 Y / n" ;;
+    esac
+done
 
 if [[ "$CONFIRM_CRON" == "y" ]]; then
     CRON_CMD="${SELF_PATH} --run --source ${SOURCE_MODE} --dir \"${DOWNLOAD_DIR}\" --delete-after ${DELETE_AFTER} >> ${LOG_DIR}/download.log 2>&1"
